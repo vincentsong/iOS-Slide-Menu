@@ -25,7 +25,7 @@
 	leftMenu.view.backgroundColor = [UIColor lightGrayColor];
 	leftMenu.cellIdentifier = @"leftMenuCell";
 	
-	[SlideNavigationController sharedInstance].righMenu = rightMenu;
+	[SlideNavigationController sharedInstance].rightMenu = rightMenu;
 	[SlideNavigationController sharedInstance].leftMenu = leftMenu;
 	
     // Override point for customization after application launch.

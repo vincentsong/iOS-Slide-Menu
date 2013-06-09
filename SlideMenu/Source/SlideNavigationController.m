@@ -15,7 +15,7 @@
 @end
 
 @implementation SlideNavigationController
-@synthesize righMenu;
+@synthesize rightMenu;
 @synthesize leftMenu;
 @synthesize tapRecognizer;
 @synthesize panRecognizer;
@@ -28,6 +28,7 @@
 #define MENU_SLIDE_ANIMATION_DURATION .3
 #define MENU_QUICK_SLIDE_ANIMATION_DURATION .1
 #define MENU_IMAGE @"menu-button"
+#define MENU_TAG 9876123
 
 static SlideNavigationController *singletonInstance;
 
@@ -69,12 +70,15 @@ static SlideNavigationController *singletonInstance;
 	singletonInstance = self;
 	self.delegate = self;
 	
-	self.view.layer.shadowColor = [UIColor darkGrayColor].CGColor;
-	self.view.layer.shadowRadius = 10;
-	self.view.layer.shadowPath = [UIBezierPath bezierPathWithRect:self.view.bounds].CGPath;
-	self.view.layer.shadowOpacity = 1;
-	self.view.layer.shouldRasterize = YES;
-	self.view.layer.rasterizationScale = [UIScreen mainScreen].scale;
+	for (UIView *view in self.view.subviews)
+	{
+		/*view.layer.shadowColor = [UIColor darkGrayColor].CGColor;
+		view.layer.shadowRadius = 10;
+		view.layer.shadowPath = [UIBezierPath bezierPathWithRect:view.bounds].CGPath;
+		view.layer.shadowOpacity = 1;
+		view.layer.shouldRasterize = YES;
+		view.layer.rasterizationScale = [UIScreen mainScreen].scale;*/
+	}
 	
 	[self setEnableSwipeGesture:YES];
 }
@@ -89,7 +93,7 @@ static SlideNavigationController *singletonInstance;
 		return;
 	}
 	
-	__block CGRect rect = self.view.frame;
+	__block CGRect rect = self.locationOfMovedSubviews;
 	
 	if ([self isMenuOpen])
 	{
@@ -98,7 +102,7 @@ static SlideNavigationController *singletonInstance;
 							options:UIViewAnimationOptionCurveEaseOut
 						 animations:^{
 			rect.origin.x = (rect.origin.x > 0) ? rect.size.width : -1*rect.size.width;
-			self.view.frame = rect;
+			[self moveNavigationControllerContentToXCordinate:rect.origin.x];
 		} completion:^(BOOL finished) {
 			
 			[super popToRootViewControllerAnimated:NO];
@@ -168,6 +172,21 @@ static SlideNavigationController *singletonInstance;
 
 #pragma mark - Private Methods -
 
+- (void)moveNavigationControllerContentToXCordinate:(NSInteger)x
+{
+	for (UIView *view in self.view.subviews)
+	{
+		if (view.tag != MENU_TAG)
+		{
+			NSLog(@"%@", view);
+			
+			CGRect rect = view.frame;
+			rect.origin.x = x;
+			view.frame = rect;
+		}
+	}
+}
+
 - (UIBarButtonItem *)barButtonItemForMenu:(Menu)menu
 {
 	SEL selector = (menu == MenuLeft) ? @selector(leftMenuSelected:) : @selector(righttMenuSelected:);
@@ -188,7 +207,21 @@ static SlideNavigationController *singletonInstance;
 
 - (BOOL)isMenuOpen
 {
-	return (self.view.frame.origin.x == 0) ? NO : YES;
+	#warning find a better way
+	return (self.locationOfMovedSubviews.origin.x == 0) ? NO : YES;
+}
+
+- (CGRect)locationOfMovedSubviews
+{
+	for (UIView *view in self.view.subviews)
+	{
+		if (view.tag != MENU_TAG)
+		{
+			return view.frame;
+		}
+	}
+	
+	return CGRectZero;
 }
 
 - (BOOL)shouldDisplayMenu:(Menu)menu forViewController:(UIViewController *)vc
@@ -219,13 +252,13 @@ static SlideNavigationController *singletonInstance;
 	
 	if (menu == MenuLeft)
 	{
-		[self.righMenu.view removeFromSuperview];
-		[self.view.window insertSubview:self.leftMenu.view atIndex:0];
+		[self.rightMenu.view removeFromSuperview];
+		[self.view insertSubview:self.leftMenu.view atIndex:0];
 	}
 	else
 	{
 		[self.leftMenu.view removeFromSuperview];
-		[self.view.window insertSubview:self.righMenu.view atIndex:0];
+		[self.view insertSubview:self.rightMenu.view atIndex:0];
 	}
 	
 	[UIView animateWithDuration:duration
@@ -234,7 +267,7 @@ static SlideNavigationController *singletonInstance;
 					 animations:^{
 						 CGRect rect = self.view.frame;
 						 rect.origin.x = (menu == MenuLeft) ? (rect.size.width - MENU_OFFSET) : ((rect.size.width - MENU_OFFSET )* -1);
-						 self.view.frame = rect;
+						 [self moveNavigationControllerContentToXCordinate:rect.origin.x];
 					 }
 					 completion:^(BOOL finished) {
 						 if (completion)
@@ -257,7 +290,7 @@ static SlideNavigationController *singletonInstance;
 					 animations:^{
 						 CGRect rect = self.view.frame;
 						 rect.origin.x = 0;
-						 self.view.frame = rect;
+						 [self moveNavigationControllerContentToXCordinate:rect.origin.x];
 					 }
 					 completion:^(BOOL finished) {
 						 if (completion)
@@ -323,29 +356,31 @@ static SlideNavigationController *singletonInstance;
 	else if (aPanRecognizer.state == UIGestureRecognizerStateChanged)
 	{
 		NSInteger movement = translation.x - self.draggingPoint.x;
-		CGRect rect = self.view.frame;
+		CGRect rect = self.locationOfMovedSubviews;
 		rect.origin.x += movement;
 		
+		NSLog(@"movingx:%f", rect.origin.x);
+		
 		if (rect.origin.x >= self.minXForDragging && rect.origin.x <= self.maxXForDragging)
-			self.view.frame = rect;
+			[self moveNavigationControllerContentToXCordinate:rect.origin.x];
 		
 		self.draggingPoint = translation;
 		
-		//
+		// Add/Remove menu as user swipes to display the correct menu in the background
 		if (rect.origin.x > 0)
 		{
-			[self.righMenu.view removeFromSuperview];
-			[self.view.window insertSubview:self.leftMenu.view atIndex:0];
+			[self.rightMenu.view removeFromSuperview];
+			[self.view insertSubview:self.leftMenu.view atIndex:0];
 		}
 		else
 		{
 			[self.leftMenu.view removeFromSuperview];
-			[self.view.window insertSubview:self.righMenu.view atIndex:0];
+			[self.view insertSubview:self.rightMenu.view atIndex:0];
 		}
 	}
 	else if (aPanRecognizer.state == UIGestureRecognizerStateEnded)
 	{
-        NSInteger currentX = self.view.frame.origin.x;
+        NSInteger currentX = self.locationOfMovedSubviews.origin.x;
 		NSInteger currentXOffset = (currentX > 0) ? currentX : currentX * -1;
 		NSInteger positiveVelocity = (velocity.x > 0) ? velocity.x : velocity.x * -1;
 		
@@ -408,6 +443,20 @@ static SlideNavigationController *singletonInstance;
 }
 
 #pragma mark - Setter & Getter -
+
+- (void)setLeftMenu:(UIViewController *)aLeftMenu
+{
+	leftMenu = aLeftMenu;
+	leftMenu.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+	leftMenu.view.tag = MENU_TAG;
+}
+
+- (void)setRightMenu:(UIViewController *)aRightMenu
+{
+	rightMenu = aRightMenu;
+	rightMenu.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+	rightMenu.view.tag = MENU_TAG;
+}
 
 - (UITapGestureRecognizer *)tapRecognizer
 {
