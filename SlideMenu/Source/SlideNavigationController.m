@@ -175,8 +175,13 @@ static SlideNavigationController *singletonInstance;
 	
 	if (customButton)
 	{
-		customButton.action = selector;
-		customButton.target = self;
+        if (customButton.customView && [customButton.customView isKindOfClass:[UIButton class]]) {
+            UIButton* btn = (UIButton*)customButton.customView;
+            [btn addTarget:self action:selector forControlEvents:UIControlEventTouchUpInside];
+        }else{
+            customButton.action = selector;
+            customButton.target = self;
+        }
 		return customButton;
 	}
 	else
@@ -442,5 +447,6 @@ static SlideNavigationController *singletonInstance;
 		[self.view removeGestureRecognizer:self.panRecognizer];
 	}
 }
+
 
 @end
